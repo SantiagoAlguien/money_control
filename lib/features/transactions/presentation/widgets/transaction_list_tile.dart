@@ -2,16 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 
+// Fecha: 2026-06-26
+// Widget reutilizable que muestra una transacción en formato de tarjeta.
 class TransactionListTile extends StatelessWidget {
   final Transaction transaction;
+  final VoidCallback? onTap;
 
-  const TransactionListTile({super.key, required this.transaction});
+  const TransactionListTile({
+    super.key,
+    required this.transaction,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type.value == 'income';
-    final color = isIncome ? Colors.greenAccent : Colors.redAccent;
-    final sign = isIncome ? '+' : '-';
+    final isNeutral = transaction.type.value == 'neutral';
+    final color = isNeutral
+        ? Colors.grey
+        : isIncome
+            ? Colors.greenAccent
+            : Colors.redAccent;
+    final sign = isNeutral
+        ? ''
+        : isIncome
+            ? '+'
+            : '-';
     final currencyFormat = NumberFormat.currency(
       locale: 'es_CO',
       symbol: '\$',
@@ -21,16 +37,21 @@ class TransactionListTile extends StatelessWidget {
 
     return Card(
       child: ListTile(
+        onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.2),
           child: Icon(
-            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+            isNeutral
+                ? Icons.swap_horiz
+                : isIncome
+                    ? Icons.arrow_downward
+                    : Icons.arrow_upward,
             color: color,
           ),
         ),
         title: Text(transaction.bank),
         subtitle: Text(
-          '${transaction.category.value.toUpperCase()} · ${dateFormat.format(transaction.transactionDate)}',
+          '${transaction.category.value.toUpperCase()} · ${dateFormat.format(transaction.transactionDate)}${transaction.description != null ? '\n${transaction.description}' : ''}',
         ),
         trailing: Text(
           '$sign${currencyFormat.format(transaction.amount)}',

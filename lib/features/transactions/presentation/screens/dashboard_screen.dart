@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:money_control/core/di/providers.dart';
 import 'package:money_control/core/router/app_router.dart';
 import 'package:money_control/core/services/notification_permission_service.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 import 'package:money_control/features/transactions/presentation/providers/dashboard_provider.dart';
 import 'package:money_control/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:money_control/features/transactions/presentation/widgets/charts/balance_line_chart.dart';
+import 'package:money_control/features/transactions/presentation/widgets/charts/category_pie_chart.dart';
+import 'package:money_control/features/transactions/presentation/widgets/charts/monthly_bar_chart.dart';
 import 'package:money_control/features/transactions/presentation/widgets/summary_card.dart';
 import 'package:money_control/features/transactions/presentation/widgets/transaction_list_tile.dart';
 
+// Fecha: 2026-06-26
+// Pantalla principal de la app. Muestra resumen, gráficas y últimos movimientos.
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -19,9 +23,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  static const String _sampleNotification =
-      'TX EXITOSA en *8128.\nEl 2026.05.30 a las 08:00\nTRANSFERENCIA por \$100.000\nBanco Caja Social.';
-
   bool? _permissionGranted;
 
   @override
@@ -30,6 +31,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _checkPermission();
   }
 
+  // Fecha: 2026-06-26
+  // Verifica si la app tiene permiso para leer notificaciones del sistema.
   Future<void> _checkPermission() async {
     final granted = await NotificationPermissionService.isGranted();
     if (mounted) {
@@ -37,6 +40,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  // Fecha: 2026-06-26
+  // Abre la configuración de Android para activar acceso a notificaciones.
   Future<void> _openSettings() async {
     await NotificationPermissionService.openSettings();
   }
@@ -56,6 +61,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push(AppRouter.addEditTransaction),
+        child: const Icon(Icons.add),
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(transactionsProvider.notifier).refresh();
@@ -72,13 +81,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               error: (error, _) => Text('Error: $error'),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _simulateTransfer(),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Simular Transferencia Caja Social'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+            // Fecha: 2026-06-26
+            // Gráficas compactas en el dashboard.
+            transactionsAsync.when(
+              data: (transactions) => _buildCharts(transactions),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Error: $error'),
             ),
             const SizedBox(height: 24),
             Row(
@@ -106,6 +114,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // Fecha: 2026-06-26
+  // Muestra un banner según el estado del permiso de notificaciones.
   Widget _buildPermissionBanner() {
     if (_permissionGranted == null) return const SizedBox.shrink();
     if (_permissionGranted == true) {
@@ -146,6 +156,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // Fecha: 2026-06-26
+  // Construye las tarjetas de resumen: saldo, ingresos y gastos del mes.
   Widget _buildSummary(BuildContext context, Map<String, double> summary) {
     final currencyFormat = NumberFormat.currency(
       locale: 'es_CO',
@@ -189,6 +201,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // Fecha: 2026-06-26
+  // Renderiza las gráficas usando la lista de transacciones.
+  Widget _buildCharts(List<Transaction> transactions) {
+    return Column(
+      children: [
+        CategoryPieChart(transactions: transactions),
+        const SizedBox(height: 16),
+        MonthlyBarChart(transactions: transactions),
+        const SizedBox(height: 16),
+        BalanceLineChart(transactions: transactions),
+      ],
+    );
+  }
+
+  // Fecha: 2026-06-26
+  // Muestra los últimos 5 movimientos recientes.
   Widget _buildRecentTransactions(List<Transaction> transactions) {
     if (transactions.isEmpty) {
       return const Card(
@@ -201,18 +229,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final recent = transactions.take(5).toList();
     return Column(
-      children: recent.map((t) => TransactionListTile(transaction: t)).toList(),
+      children: recent.map((t) => TransactionListTile(
+        transaction: t,
+        onTap: () => context.push(
+          AppRouter.addEditTransaction,
+          extra: t,
+        ),
+      )).toList(),
     );
-  }
-
-  Future<void> _simulateTransfer() async {
-    final notifier = ref.read(transactionsProvider.notifier);
-    final transaction = ref.read(parseNotificationProvider)(
-      _sampleNotification,
-      source: 'manual_simulation',
-    );
-    if (transaction == null) return;
-    await notifier.saveTransaction(transaction);
-    await ref.read(dashboardProvider.notifier).refresh();
   }
 }

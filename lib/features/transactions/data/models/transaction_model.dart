@@ -3,6 +3,9 @@ import 'package:money_control/features/transactions/domain/entities/movement_typ
 import 'package:money_control/features/transactions/domain/entities/transaction.dart'
     as domain;
 
+// Fecha: 2026-06-26
+// Modelo de datos que representa una transacción en la capa de datos.
+// Se encarga de convertir entre la entidad de dominio y el mapa de SQLite.
 class TransactionModel {
   final String? id;
   final String bank;
@@ -13,6 +16,7 @@ class TransactionModel {
   final String originalText;
   final String source;
   final String createdAt;
+  final String? description;
 
   const TransactionModel({
     this.id,
@@ -24,8 +28,11 @@ class TransactionModel {
     required this.originalText,
     required this.source,
     required this.createdAt,
+    this.description,
   });
 
+  // Fecha: 2026-06-26
+  // Crea un modelo a partir de una entidad de dominio.
   factory TransactionModel.fromEntity(domain.Transaction entity) {
     return TransactionModel(
       id: entity.id,
@@ -37,9 +44,12 @@ class TransactionModel {
       originalText: entity.originalText,
       source: entity.source,
       createdAt: entity.createdAt.toIso8601String(),
+      description: entity.description,
     );
   }
 
+  // Fecha: 2026-06-26
+  // Convierte el modelo a la entidad de dominio.
   domain.Transaction toEntity() {
     return domain.Transaction(
       id: id,
@@ -51,9 +61,12 @@ class TransactionModel {
       originalText: originalText,
       source: source,
       createdAt: DateTime.parse(createdAt),
+      description: description,
     );
   }
 
+  // Fecha: 2026-06-26
+  // Convierte el modelo a un mapa para guardar en SQLite.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -65,12 +78,16 @@ class TransactionModel {
       'originalText': originalText,
       'source': source,
       'createdAt': createdAt,
+      'description': description,
     };
   }
 
+  // Fecha: 2026-06-26
+  // Crea un modelo a partir de un mapa de SQLite.
+  // El id es INTEGER en la base de datos, por eso se convierte con toString().
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
-      id: map['id'] as String?,
+      id: map['id']?.toString(),
       bank: map['bank'] as String,
       amount: map['amount'] as double,
       type: map['type'] as String,
@@ -79,9 +96,12 @@ class TransactionModel {
       originalText: map['originalText'] as String,
       source: map['source'] as String,
       createdAt: map['createdAt'] as String,
+      description: map['description'] as String?,
     );
   }
 
+  // Fecha: 2026-06-26
+  // Crea una copia del modelo con los campos que se deseen actualizar.
   TransactionModel copyWith({
     String? id,
     String? bank,
@@ -92,6 +112,7 @@ class TransactionModel {
     String? originalText,
     String? source,
     String? createdAt,
+    String? description,
   }) {
     return TransactionModel(
       id: id ?? this.id,
@@ -103,6 +124,7 @@ class TransactionModel {
       originalText: originalText ?? this.originalText,
       source: source ?? this.source,
       createdAt: createdAt ?? this.createdAt,
+      description: description ?? this.description,
     );
   }
 }

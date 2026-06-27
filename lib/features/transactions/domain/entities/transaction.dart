@@ -1,6 +1,9 @@
 import 'package:money_control/features/transactions/domain/entities/category.dart';
 import 'package:money_control/features/transactions/domain/entities/movement_type.dart';
 
+// Fecha: 2026-06-26
+// Entidad de dominio que representa una transacción financiera.
+// Guarda toda la información relevante de un movimiento bancario o manual.
 class Transaction {
   final String? id;
   final String bank;
@@ -11,6 +14,7 @@ class Transaction {
   final String originalText;
   final String source;
   final DateTime createdAt;
+  final String? description; // Motivo o destino del movimiento (manual o editado).
 
   const Transaction({
     this.id,
@@ -22,8 +26,11 @@ class Transaction {
     required this.originalText,
     required this.source,
     required this.createdAt,
+    this.description,
   });
 
+  // Fecha: 2026-06-26
+  // Crea una copia de la transacción con los campos que se deseen actualizar.
   Transaction copyWith({
     String? id,
     String? bank,
@@ -34,6 +41,7 @@ class Transaction {
     String? originalText,
     String? source,
     DateTime? createdAt,
+    String? description,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -45,6 +53,7 @@ class Transaction {
       originalText: originalText ?? this.originalText,
       source: source ?? this.source,
       createdAt: createdAt ?? this.createdAt,
+      description: description ?? this.description,
     );
   }
 }

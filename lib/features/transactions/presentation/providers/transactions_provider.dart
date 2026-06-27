@@ -4,6 +4,8 @@ import 'package:money_control/core/services/notification_channel_service.dart';
 import 'package:money_control/core/utils/result.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 
+// Fecha: 2026-06-26
+// Notifier que expone la lista de transacciones y escucha notificaciones automáticas.
 final transactionsProvider =
     AsyncNotifierProvider<TransactionsNotifier, List<Transaction>>(
   TransactionsNotifier.new,
@@ -21,11 +23,19 @@ class TransactionsNotifier extends AsyncNotifier<List<Transaction>> {
     };
   }
 
+  // Fecha: 2026-06-26
+  // Inicia el listener de notificaciones del sistema (SMS, apps bancarias, Nequi).
+  // Cada notificación recibida se imprime para poder analizar su formato.
   void _initNotificationListener() {
     final service = NotificationChannelService();
     if (!service.isSupported) return;
 
     service.notificationStream.listen((data) {
+      // Fecha: 2026-06-26
+      // Log temporal para capturar el formato de notificaciones de Nequi y otras apps.
+      // ignore: avoid_print
+      print('NOTIFICACION RECIBIDA: $data');
+
       final text = data['text'] ?? '';
       final source = data['packageName'] ?? 'notification';
       final timestamp = data['timestamp'] as int?;
@@ -36,6 +46,8 @@ class TransactionsNotifier extends AsyncNotifier<List<Transaction>> {
     });
   }
 
+  // Fecha: 2026-06-26
+  // Procesa una notificación: la parsea y la guarda si es reconocida.
   Future<void> _processNotification(
     String text,
     String source,
@@ -50,6 +62,8 @@ class TransactionsNotifier extends AsyncNotifier<List<Transaction>> {
     await saveTransaction(transaction);
   }
 
+  // Fecha: 2026-06-26
+  // Guarda una nueva transacción y refresca la lista.
   Future<void> saveTransaction(Transaction transaction) async {
     final result = await ref.read(saveTransactionProvider)(transaction);
     switch (result) {
@@ -61,6 +75,34 @@ class TransactionsNotifier extends AsyncNotifier<List<Transaction>> {
     await refresh();
   }
 
+  // Fecha: 2026-06-26
+  // Actualiza una transacción existente y refresca la lista.
+  Future<void> updateTransaction(Transaction transaction) async {
+    final result = await ref.read(updateTransactionProvider)(transaction);
+    switch (result) {
+      case Failure(error: final error):
+        throw error;
+      case Success():
+        break;
+    }
+    await refresh();
+  }
+
+  // Fecha: 2026-06-26
+  // Elimina una transacción por su id y refresca la lista.
+  Future<void> deleteTransaction(String id) async {
+    final result = await ref.read(deleteTransactionProvider)(id);
+    switch (result) {
+      case Failure(error: final error):
+        throw error;
+      case Success():
+        break;
+    }
+    await refresh();
+  }
+
+  // Fecha: 2026-06-26
+  // Vuelve a cargar las transacciones desde la base de datos.
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
