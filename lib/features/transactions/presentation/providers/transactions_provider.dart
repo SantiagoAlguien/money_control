@@ -6,6 +6,8 @@ import 'package:money_control/features/transactions/domain/entities/app_config.d
 import 'package:money_control/features/transactions/domain/entities/parser_rule.dart';
 import 'package:money_control/features/transactions/domain/entities/pending_notification.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
+import 'package:money_control/features/transactions/presentation/providers/dashboard_provider.dart';
+import 'package:money_control/features/transactions/presentation/providers/selected_month_provider.dart';
 
 // Fecha: 2026-06-26
 // Notifier que expone la lista de transacciones y escucha notificaciones automáticas.
@@ -182,6 +184,17 @@ class TransactionsNotifier extends AsyncNotifier<List<Transaction>> {
     await refresh();
   }
 
+  // Fecha: 2026-06-28
+  // Elimina todas las transacciones del mes seleccionado y refresca la lista.
+  Future<int> deleteByMonth() async {
+    final month = ref.read(selectedMonthProvider);
+    final result = await ref.read(deleteTransactionsByMonthProvider)(month);
+    return switch (result) {
+      Failure(error: final error) => throw error,
+      Success<int>(value: final count) => count,
+    };
+  }
+
   // Fecha: 2026-06-26
   // Vuelve a cargar las transacciones desde la base de datos.
   Future<void> refresh() async {
@@ -194,5 +207,6 @@ class TransactionsNotifier extends AsyncNotifier<List<Transaction>> {
         Failure(error: final error) => throw error,
       };
     });
+    ref.invalidate(dashboardProvider);
   }
 }

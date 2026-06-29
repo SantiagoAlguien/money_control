@@ -70,6 +70,16 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<Result<int>> deleteTransactionsByMonth(DateTime month) async {
+    try {
+      final count = await _datasource.deleteByMonth(month);
+      return Success(count);
+    } catch (e) {
+      return Failure(e);
+    }
+  }
+
+  @override
   Future<Result<List<AppConfig>>> getAppConfigs() async {
     try {
       final models = await _datasource.getAppConfigs();

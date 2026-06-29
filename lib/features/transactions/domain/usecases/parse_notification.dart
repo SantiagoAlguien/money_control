@@ -98,20 +98,20 @@ class ParseNotification {
   }
 
   Category? _detectCategory(String text) {
-    if (text.contains('NOMINA')) return Category.payroll;
+    if (text.contains('NOMINA')) return Category.nomina;
     if (text.contains('ENVIASTE') ||
         text.contains('ENVIO') ||
         text.contains('TE ENVIARON')) {
-      return Category.transfer;
+      return Category.transferencia;
     }
     if (text.contains('TRANSFERENCIA') || text.contains('TRANSFERENCIAS')) {
-      return Category.transfer;
+      return Category.transferencia;
     }
     if (text.contains('RENDIMIENTO') || text.contains('RENDIMIENTOS')) {
-      return Category.performance;
+      return Category.rendimiento;
     }
-    if (text.contains('COMPRA')) return Category.purchase;
-    if (text.contains('RETIRO')) return Category.withdrawal;
+    if (text.contains('COMPRA')) return Category.compra;
+    if (text.contains('RETIRO')) return Category.retiro;
     return null;
   }
 
@@ -119,13 +119,13 @@ class ParseNotification {
     if (text.contains('TE ENVIARON')) return MovementType.income;
 
     switch (category) {
-      case Category.payroll:
-      case Category.performance:
+      case Category.nomina:
+      case Category.rendimiento:
         return MovementType.income;
-      case Category.transfer:
-      case Category.purchase:
-      case Category.withdrawal:
-      case Category.other:
+      case Category.transferencia:
+      case Category.compra:
+      case Category.retiro:
+      case Category.otro:
         return MovementType.expense;
     }
   }

@@ -5,6 +5,7 @@ import 'package:money_control/features/transactions/domain/repositories/transact
 import 'package:money_control/features/transactions/domain/usecases/clean_expired_pending_notifications.dart';
 import 'package:money_control/features/transactions/domain/usecases/create_balance_adjustment.dart';
 import 'package:money_control/features/transactions/domain/usecases/delete_transaction.dart';
+import 'package:money_control/features/transactions/domain/usecases/delete_transactions_by_month.dart';
 import 'package:money_control/features/transactions/domain/usecases/get_all_transactions.dart';
 import 'package:money_control/features/transactions/domain/usecases/get_app_configs.dart';
 import 'package:money_control/features/transactions/domain/usecases/get_monthly_summary.dart';
@@ -53,6 +54,10 @@ final updateTransactionProvider = Provider<UpdateTransaction>(
 
 final deleteTransactionProvider = Provider<DeleteTransaction>(
   (ref) => DeleteTransaction(ref.watch(transactionRepositoryProvider)),
+);
+
+final deleteTransactionsByMonthProvider = Provider<DeleteTransactionsByMonth>(
+  (ref) => DeleteTransactionsByMonth(ref.watch(transactionRepositoryProvider)),
 );
 
 // Fecha: 2026-06-26

@@ -51,7 +51,7 @@ class TransactionListTile extends StatelessWidget {
         ),
         title: Text(transaction.bank),
         subtitle: Text(
-          '${transaction.category.value.toUpperCase()} · ${dateFormat.format(transaction.transactionDate)}${transaction.description != null ? '\n${transaction.description}' : ''}',
+          '${transaction.category.displayName} · ${dateFormat.format(transaction.transactionDate)}${transaction.description != null ? '\n${transaction.description}' : ''}',
         ),
         trailing: Text(
           '$sign${currencyFormat.format(transaction.amount)}',

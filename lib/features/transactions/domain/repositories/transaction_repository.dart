@@ -13,6 +13,7 @@ abstract class TransactionRepository {
   Future<Result<Map<String, double>>> getMonthlySummary(DateTime month);
   Future<Result<void>> updateTransaction(Transaction transaction);
   Future<Result<void>> deleteTransaction(int id);
+  Future<Result<int>> deleteTransactionsByMonth(DateTime month);
 
   // Apps de notificaciones
   Future<Result<List<AppConfig>>> getAppConfigs();

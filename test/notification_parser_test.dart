@@ -21,7 +21,7 @@ void main() {
       expect(transaction!.bank, 'Caja Social');
       expect(transaction.amount, 10.0);
       expect(transaction.type, MovementType.expense);
-      expect(transaction.category, Category.transfer);
+      expect(transaction.category, Category.transferencia);
     });
 
     test('caso 6: recibiste 10 pesos por una llave (ingreso)', () {
@@ -34,7 +34,7 @@ void main() {
       expect(transaction!.bank, 'Caja Social');
       expect(transaction.amount, 10.0);
       expect(transaction.type, MovementType.income);
-      expect(transaction.category, Category.transfer);
+      expect(transaction.category, Category.transferencia);
     });
 
     test('caso 2: abono de nomina', () {
@@ -47,7 +47,7 @@ void main() {
       expect(transaction!.bank, 'Caja Social');
       expect(transaction.amount, 1000000.0);
       expect(transaction.type, MovementType.income);
-      expect(transaction.category, Category.payroll);
+      expect(transaction.category, Category.nomina);
       expect(transaction.transactionDate, DateTime(2026, 5, 30));
     });
 
@@ -61,7 +61,7 @@ void main() {
       expect(transaction!.bank, 'Caja Social');
       expect(transaction.amount, 100000.0);
       expect(transaction.type, MovementType.expense);
-      expect(transaction.category, Category.transfer);
+      expect(transaction.category, Category.transferencia);
       expect(transaction.transactionDate, DateTime(2026, 5, 30));
     });
 
@@ -75,7 +75,7 @@ void main() {
       expect(transaction!.bank, 'Caja Social');
       expect(transaction.amount, 80000.0);
       expect(transaction.type, MovementType.expense);
-      expect(transaction.category, Category.purchase);
+      expect(transaction.category, Category.compra);
       expect(transaction.transactionDate, DateTime(2026, 5, 31));
     });
 
@@ -89,7 +89,7 @@ void main() {
       expect(transaction!.bank, 'Caja Social');
       expect(transaction.amount, 200000.0);
       expect(transaction.type, MovementType.expense);
-      expect(transaction.category, Category.withdrawal);
+      expect(transaction.category, Category.retiro);
       expect(transaction.transactionDate, DateTime(2026, 6, 1));
     });
 
@@ -103,7 +103,7 @@ void main() {
       expect(transaction!.bank, 'Desconocido');
       expect(transaction.amount, 11.0);
       expect(transaction.type, MovementType.income);
-      expect(transaction.category, Category.transfer);
+      expect(transaction.category, Category.transferencia);
     });
   });
 }

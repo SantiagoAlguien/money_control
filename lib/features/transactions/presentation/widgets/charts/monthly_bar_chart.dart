@@ -7,17 +7,21 @@ import 'package:money_control/features/transactions/domain/entities/transaction.
 // Gráfica de barras que compara ingresos y gastos de los últimos 6 meses.
 class MonthlyBarChart extends StatelessWidget {
   final List<Transaction> transactions;
+  final DateTime month;
 
-  const MonthlyBarChart({super.key, required this.transactions});
+  const MonthlyBarChart({
+    super.key,
+    required this.transactions,
+    required this.month,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Fecha: 2026-06-26
-    // Genera los últimos 6 meses (más reciente a la derecha).
-    final now = DateTime.now();
+    // Fecha: 2026-06-28
+    // Genera los últimos 6 meses terminando en el mes seleccionado.
     final months = List.generate(6, (index) {
-      final month = DateTime(now.year, now.month - (5 - index), 1);
-      return month;
+      final m = DateTime(month.year, month.month - (5 - index), 1);
+      return m;
     });
 
     // Fecha: 2026-06-26
@@ -62,7 +66,7 @@ class MonthlyBarChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ingresos vs Gastos',
+              'Ingresos vs Gastos (últimos 6 meses)',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -84,7 +88,7 @@ class MonthlyBarChart extends StatelessWidget {
                             return const SizedBox.shrink();
                           }
                           return Text(
-                            DateFormat('MMM').format(months[index]),
+                            DateFormat('MMM', 'es_CO').format(months[index]),
                             style: const TextStyle(fontSize: 10),
                           );
                         },

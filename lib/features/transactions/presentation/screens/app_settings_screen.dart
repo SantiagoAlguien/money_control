@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:installed_apps/app_info.dart';
 import 'package:money_control/core/di/providers.dart';
 import 'package:money_control/core/utils/result.dart';
 import 'package:money_control/features/transactions/domain/entities/app_config.dart';
 import 'package:money_control/features/transactions/domain/entities/category.dart';
 import 'package:money_control/features/transactions/domain/entities/movement_type.dart';
 import 'package:money_control/features/transactions/domain/entities/parser_rule.dart';
+import 'package:money_control/features/transactions/presentation/providers/app_configs_provider.dart';
+import 'package:money_control/features/transactions/presentation/widgets/installed_apps_picker.dart';
 
 // Fecha: 2026-06-26
 // Pantalla para configurar qué apps pueden enviar notificaciones y cómo procesarlas.
@@ -19,15 +22,7 @@ class AppSettingsScreen extends ConsumerStatefulWidget {
 class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
   @override
   Widget build(BuildContext context) {
-    final configsAsync = ref.watch(
-      FutureProvider((ref) async {
-        final result = await ref.read(getAppConfigsProvider)();
-        return switch (result) {
-          Success(value: final configs) => configs,
-          Failure(error: final error) => throw error,
-        };
-      }),
-    );
+    final configsAsync = ref.watch(appConfigsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Configuración de apps')),
@@ -99,7 +94,7 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
       case Success():
         break;
     }
-    setState(() {});
+    ref.invalidate(appConfigsProvider);
   }
 
   // Fecha: 2026-06-26
@@ -114,11 +109,11 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
       case Success():
         break;
     }
-    setState(() {});
+    ref.invalidate(appConfigsProvider);
   }
 
-  // Fecha: 2026-06-26
-  // Muestra diálogo para agregar una nueva app.
+  // Fecha: 2026-06-28
+  // Muestra diálogo para agregar una nueva app, permitiendo elegirla de las instaladas.
   void _showAddAppDialog() {
     final packageController = TextEditingController();
     final nameController = TextEditingController();
@@ -127,56 +122,75 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Agregar app'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: packageController,
-              decoration: const InputDecoration(labelText: 'Package name'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Agregar app'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: packageController,
+                decoration: const InputDecoration(labelText: 'Package name'),
+              ),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nombre visible'),
+              ),
+              TextField(
+                controller: bankController,
+                decoration: const InputDecoration(labelText: 'Banco asociado'),
+              ),
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () async {
+                  final app = await showDialog<AppInfo>(
+                    context: context,
+                    builder: (_) => const InstalledAppsPicker(),
+                  );
+                  if (app != null && mounted) {
+                    setDialogState(() {
+                      packageController.text = app.packageName;
+                      nameController.text = app.name;
+                    });
+                  }
+                },
+                icon: const Icon(Icons.app_shortcut),
+                label: const Text('Elegir de apps instaladas'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
             ),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Nombre visible'),
-            ),
-            TextField(
-              controller: bankController,
-              decoration: const InputDecoration(labelText: 'Banco asociado'),
+            TextButton(
+              onPressed: () async {
+                final config = AppConfig(
+                  packageName: packageController.text.trim(),
+                  appName: nameController.text.trim(),
+                  enabled: true,
+                  autoProcess: true,
+                  bankName: bankController.text.trim(),
+                );
+                final navigator = Navigator.of(context);
+                final result = await ref.read(saveAppConfigProvider)(config);
+                if (mounted) {
+                  switch (result) {
+                    case Failure(error: final error):
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(content: Text('Error: $error')),
+                      );
+                    case Success():
+                      navigator.pop();
+                      ref.invalidate(appConfigsProvider);
+                  }
+                }
+              },
+              child: const Text('Guardar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final config = AppConfig(
-                packageName: packageController.text.trim(),
-                appName: nameController.text.trim(),
-                enabled: true,
-                autoProcess: true,
-                bankName: bankController.text.trim(),
-              );
-              final navigator = Navigator.of(context);
-              final result = await ref.read(saveAppConfigProvider)(config);
-              if (mounted) {
-                switch (result) {
-                  case Failure(error: final error):
-                    scaffoldMessenger.showSnackBar(
-                      SnackBar(content: Text('Error: $error')),
-                    );
-                  case Success():
-                    navigator.pop();
-                    setState(() {});
-                }
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
   }
@@ -213,7 +227,7 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
                     return ListTile(
                       title: Text(rule.keyword),
                       subtitle: Text(
-                        '${rule.category.value.toUpperCase()} · ${rule.type.value}',
+                        '${rule.category.displayName} · ${rule.type.value}',
                       ),
                     );
                   },
@@ -241,7 +255,7 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
   // Muestra diálogo para agregar una regla de parser.
   void _showAddRuleDialog(AppConfig config) {
     final keywordController = TextEditingController();
-    Category selectedCategory = Category.transfer;
+    Category selectedCategory = Category.transferencia;
     MovementType selectedType = MovementType.expense;
 
     showDialog(
@@ -263,7 +277,7 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
                 items: Category.values.map((c) {
                   return DropdownMenuItem(
                     value: c,
-                    child: Text(c.value.toUpperCase()),
+                    child: Text(c.displayName),
                   );
                 }).toList(),
                 onChanged: (value) {

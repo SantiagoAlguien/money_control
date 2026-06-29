@@ -17,6 +17,7 @@ abstract class TransactionLocalDatasource {
   Future<Map<String, double>> getMonthlySummary(DateTime month);
   Future<void> update(TransactionModel transaction);
   Future<void> delete(int id);
+  Future<int> deleteByMonth(DateTime month);
 
   // Apps de notificaciones
   Future<List<AppConfigModel>> getAppConfigs();
@@ -69,7 +70,7 @@ class TransactionLocalDatasourceImpl implements TransactionLocalDatasource {
     await _seedDefaultData(db);
   }
 
-  // Fecha: 2026-06-26
+  // Fecha: 2026-06-28
   // Aplica migraciones cuando cambia la versión de la base de datos.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
@@ -78,6 +79,37 @@ class TransactionLocalDatasourceImpl implements TransactionLocalDatasource {
     if (oldVersion < 3) {
       await _createV3Tables(db);
       await _seedDefaultData(db);
+    }
+    if (oldVersion < 4) {
+      await _migrateCategoriesToSpanish(db);
+    }
+  }
+
+  // Fecha: 2026-06-28
+  // Migra los valores de categoría del inglés al español.
+  Future<void> _migrateCategoriesToSpanish(Database db) async {
+    const migrations = {
+      'payroll': 'nomina',
+      'transfer': 'transferencia',
+      'purchase': 'compra',
+      'withdrawal': 'retiro',
+      'performance': 'rendimiento',
+      'other': 'otro',
+    };
+
+    for (final entry in migrations.entries) {
+      await db.update(
+        'transactions',
+        {'category': entry.value},
+        where: 'category = ?',
+        whereArgs: [entry.key],
+      );
+      await db.update(
+        'parser_rules',
+        {'category': entry.value},
+        where: 'category = ?',
+        whereArgs: [entry.key],
+      );
     }
   }
 
@@ -159,12 +191,12 @@ class TransactionLocalDatasourceImpl implements TransactionLocalDatasource {
 
     // Reglas por defecto para Caja Social
     final cajaSocialRules = [
-      {'keyword': 'NOMINA', 'category': 'payroll', 'type': 'income'},
-      {'keyword': 'ENVIASTE', 'category': 'transfer', 'type': 'expense'},
-      {'keyword': 'TE ENVIARON', 'category': 'transfer', 'type': 'income'},
-      {'keyword': 'TRANSFERENCIA', 'category': 'transfer', 'type': 'expense'},
-      {'keyword': 'COMPRA', 'category': 'purchase', 'type': 'expense'},
-      {'keyword': 'RETIRO', 'category': 'withdrawal', 'type': 'expense'},
+      {'keyword': 'NOMINA', 'category': 'nomina', 'type': 'income'},
+      {'keyword': 'ENVIASTE', 'category': 'transferencia', 'type': 'expense'},
+      {'keyword': 'TE ENVIARON', 'category': 'transferencia', 'type': 'income'},
+      {'keyword': 'TRANSFERENCIA', 'category': 'transferencia', 'type': 'expense'},
+      {'keyword': 'COMPRA', 'category': 'compra', 'type': 'expense'},
+      {'keyword': 'RETIRO', 'category': 'retiro', 'type': 'expense'},
     ];
 
     for (final rule in cajaSocialRules) {
@@ -178,17 +210,17 @@ class TransactionLocalDatasourceImpl implements TransactionLocalDatasource {
     final nequiRules = [
       {
         'keyword': 'TE ENVIARON PLATA',
-        'category': 'transfer',
+        'category': 'transferencia',
         'type': 'income'
       },
       {
         'keyword': 'ENVIO DE PLATA',
-        'category': 'transfer',
+        'category': 'transferencia',
         'type': 'expense'
       },
       {
         'keyword': 'ENVÍO DE PLATA',
-        'category': 'transfer',
+        'category': 'transferencia',
         'type': 'expense'
       },
     ];
@@ -282,6 +314,20 @@ class TransactionLocalDatasourceImpl implements TransactionLocalDatasource {
       'transactions',
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  // Fecha: 2026-06-28
+  // Elimina todas las transacciones de un mes específico.
+  @override
+  Future<int> deleteByMonth(DateTime month) async {
+    final db = await _db;
+    final start = DateTime(month.year, month.month, 1).toIso8601String();
+    final end = DateTime(month.year, month.month + 1, 1).toIso8601String();
+    return db.delete(
+      'transactions',
+      where: 'transactionDate >= ? AND transactionDate < ?',
+      whereArgs: [start, end],
     );
   }
 

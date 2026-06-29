@@ -1,20 +1,25 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:money_control/features/transactions/domain/entities/category.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 
 // Fecha: 2026-06-26
 // Gráfica de pastel que muestra la distribución de gastos por categoría del mes actual.
 class CategoryPieChart extends StatelessWidget {
   final List<Transaction> transactions;
+  final DateTime month;
 
-  const CategoryPieChart({super.key, required this.transactions});
+  const CategoryPieChart({
+    super.key,
+    required this.transactions,
+    required this.month,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 1);
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 1);
 
     // Fecha: 2026-06-26
     // Agrupa los gastos del mes por categoría.
@@ -52,7 +57,8 @@ class CategoryPieChart extends StatelessWidget {
 
     final sections = categoryTotals.entries.toList().asMap().entries.map((entry) {
       final index = entry.key;
-      final category = entry.value.key;
+      final categoryKey = entry.value.key;
+      final displayName = Category.fromValue(categoryKey).displayName;
       final amount = entry.value.value;
       final percentage = total == 0 ? 0 : (amount / total * 100);
       return PieChartSectionData(
@@ -66,7 +72,7 @@ class CategoryPieChart extends StatelessWidget {
           color: Colors.black,
         ),
         badgeWidget: _CategoryBadge(
-          category: category,
+          category: displayName,
           color: colors[index % colors.length],
         ),
         badgePositionPercentageOffset: 1.2,
@@ -86,7 +92,7 @@ class CategoryPieChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Gastos por categoría',
+              'Gastos por categoría del mes',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -106,7 +112,8 @@ class CategoryPieChart extends StatelessWidget {
               runSpacing: 8,
               children: categoryTotals.entries.toList().asMap().entries.map((entry) {
                 final index = entry.key;
-                final category = entry.value.key;
+                final categoryKey = entry.value.key;
+                final displayName = Category.fromValue(categoryKey).displayName;
                 final amount = entry.value.value;
                 return Chip(
                   avatar: CircleAvatar(
@@ -114,7 +121,7 @@ class CategoryPieChart extends StatelessWidget {
                     radius: 6,
                   ),
                   label: Text(
-                    '${category.toUpperCase()} ${currencyFormat.format(amount)}',
+                    '$displayName ${currencyFormat.format(amount)}',
                     style: const TextStyle(fontSize: 11),
                   ),
                 );

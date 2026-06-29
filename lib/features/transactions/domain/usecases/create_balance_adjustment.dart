@@ -34,7 +34,7 @@ class CreateBalanceAdjustment {
       bank: 'Ajuste manual',
       amount: difference.abs(),
       type: difference > 0 ? MovementType.income : MovementType.expense,
-      category: Category.other,
+      category: Category.otro,
       transactionDate: date,
       originalText: 'Ajuste de saldo',
       source: 'manual',

@@ -7,6 +7,7 @@ import 'package:money_control/features/transactions/domain/entities/pending_noti
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 import 'package:money_control/features/transactions/presentation/providers/pending_notifications_provider.dart';
 import 'package:money_control/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:money_control/features/transactions/presentation/widgets/approve_pending_dialog.dart';
 
 // Fecha: 2026-06-26
 // Pantalla de notificaciones capturadas pendientes de aprobación manual.
@@ -18,15 +19,39 @@ class NotificationsLogScreen extends ConsumerWidget {
     final pendingAsync = ref.watch(pendingNotificationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notificaciones pendientes')),
+      appBar: AppBar(
+        title: const Text('Notificaciones pendientes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(pendingNotificationsProvider.notifier).refresh(),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(pendingNotificationsProvider.notifier).refresh(),
         child: pendingAsync.when(
           data: (notifications) => _buildList(context, ref, notifications),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Error: $error')),
+          error: (error, _) => _buildRefreshableCenter('Error: $error'),
         ),
       ),
+    );
+  }
+
+  // Fecha: 2026-06-28
+  // Centro que permite arrastrar para recargar incluso cuando no hay contenido.
+  Widget _buildRefreshableCenter(String message) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: constraints.maxHeight,
+            child: Center(child: Text(message)),
+          ),
+        );
+      },
     );
   }
 
@@ -38,7 +63,7 @@ class NotificationsLogScreen extends ConsumerWidget {
     List<PendingNotification> notifications,
   ) {
     if (notifications.isEmpty) {
-      return const Center(child: Text('No hay notificaciones pendientes'));
+      return _buildRefreshableCenter('No hay notificaciones pendientes');
     }
 
     final grouped = <String, List<PendingNotification>>{};
@@ -110,8 +135,9 @@ class NotificationsLogScreen extends ConsumerWidget {
     );
   }
 
-  // Fecha: 2026-06-26
+  // Fecha: 2026-06-28
   // Procesa una notificación pendiente como transacción del tipo indicado.
+  // Si no logra detectar el monto, abre un diálogo para que el usuario lo complete.
   Future<void> _process(
     BuildContext context,
     WidgetRef ref,
@@ -119,23 +145,35 @@ class NotificationsLogScreen extends ConsumerWidget {
     MovementType type,
   ) async {
     final amount = _extractAmount(notification.text);
-    if (amount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo detectar el monto')),
-      );
-      return;
-    }
 
-    final transaction = Transaction(
-      bank: notification.packageName,
-      amount: amount,
-      type: type,
-      category: Category.other,
-      transactionDate: notification.timestamp,
-      originalText: notification.text,
-      source: notification.packageName,
-      createdAt: DateTime.now(),
-    );
+    final Transaction transaction;
+    if (amount == null) {
+      final approved = await showDialog<Transaction>(
+        context: context,
+        builder: (_) => ApprovePendingDialog(
+          originalText: notification.text,
+          type: type,
+        ),
+      );
+      if (approved == null) return;
+      transaction = approved.copyWith(
+        transactionDate: notification.timestamp,
+        originalText: notification.text,
+        source: notification.packageName,
+        createdAt: DateTime.now(),
+      );
+    } else {
+      transaction = Transaction(
+        bank: notification.packageName,
+        amount: amount,
+        type: type,
+        category: Category.otro,
+        transactionDate: notification.timestamp,
+        originalText: notification.text,
+        source: notification.packageName,
+        createdAt: DateTime.now(),
+      );
+    }
 
     await ref.read(transactionsProvider.notifier).saveTransaction(transaction);
     await ref.read(pendingNotificationsProvider.notifier).process(
@@ -155,25 +193,35 @@ class NotificationsLogScreen extends ConsumerWidget {
     }
   }
 
-  // Fecha: 2026-06-26
+  // Fecha: 2026-06-28
   // Extrae el monto de un texto de notificación.
+  // Soporta formatos como $12, $12.000, $12.000,00, $1,234.56.
   double? _extractAmount(String text) {
-    final pattern = RegExp(r'\\$\\s?(\\d[\\d.,]*)');
+    final pattern = RegExp(r'\$\s?(\d[\d.,]*)');
     final match = pattern.firstMatch(text);
     if (match == null) return null;
 
     var raw = match.group(1)!;
     raw = raw.replaceAll(RegExp(r'[.,]$'), '');
 
-    final hasThousandSeparatorDots = RegExp(r'\\d\\.\\d{3}').hasMatch(raw);
-    final hasThousandSeparatorCommas = RegExp(r'\\d,\\d{3}').hasMatch(raw);
+    final hasThousandSeparatorDots = RegExp(r'\d\.\d{3}').hasMatch(raw);
+    final hasThousandSeparatorCommas = RegExp(r'\d,\d{3}').hasMatch(raw);
 
     String cleaned;
-    if (hasThousandSeparatorDots) {
+    if (hasThousandSeparatorDots && raw.contains(',')) {
+      // Ej: 1.234,56
       cleaned = raw.replaceAll('.', '').replaceAll(',', '.');
+    } else if (hasThousandSeparatorDots) {
+      // Ej: 12.000
+      cleaned = raw.replaceAll('.', '');
+    } else if (hasThousandSeparatorCommas && raw.contains('.')) {
+      // Ej: 1,234.56
+      cleaned = raw.replaceAll(',', '');
     } else if (hasThousandSeparatorCommas) {
+      // Ej: 12,000
       cleaned = raw.replaceAll(',', '');
     } else if (raw.contains(',')) {
+      // Decimal con coma: 12,5
       cleaned = raw.replaceAll(',', '.');
     } else {
       cleaned = raw;

@@ -42,7 +42,7 @@ class _AddEditTransactionScreenState
     _bankController = TextEditingController(text: t?.bank ?? '');
     _descriptionController = TextEditingController(text: t?.description ?? '');
     _selectedType = t?.type ?? MovementType.expense;
-    _selectedCategory = t?.category ?? Category.other;
+    _selectedCategory = t?.category ?? Category.otro;
     _selectedDate = t?.transactionDate ?? DateTime.now();
   }
 
@@ -144,7 +144,7 @@ class _AddEditTransactionScreenState
                 items: Category.values.map((category) {
                   return DropdownMenuItem(
                     value: category,
-                    child: Text(category.value.toUpperCase()),
+                    child: Text(category.displayName),
                   );
                 }).toList(),
                 onChanged: (value) {

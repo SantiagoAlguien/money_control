@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:money_control/core/di/providers.dart';
 import 'package:money_control/core/utils/result.dart';
+import 'package:money_control/features/transactions/presentation/providers/monthly_summary_provider.dart';
 import 'package:money_control/features/transactions/presentation/providers/transactions_provider.dart';
 
 // Fecha: 2026-06-26
@@ -20,6 +21,7 @@ class _BalanceAdjustmentDialogState
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -30,15 +32,7 @@ class _BalanceAdjustmentDialogState
 
   @override
   Widget build(BuildContext context) {
-    final summaryAsync = ref.watch(
-      FutureProvider((ref) async {
-        final result = await ref.read(getMonthlySummaryProvider)(DateTime.now());
-        return switch (result) {
-          Success(value: final summary) => summary,
-          Failure(error: final error) => throw error,
-        };
-      }),
-    );
+    final summaryAsync = ref.watch(monthlySummaryProvider);
 
     return AlertDialog(
       title: const Text('Ajustar saldo'),
@@ -49,12 +43,18 @@ class _BalanceAdjustmentDialogState
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         TextButton(
-          onPressed: _save,
-          child: const Text('Ajustar'),
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Ajustar'),
         ),
       ],
     );
@@ -124,6 +124,8 @@ class _BalanceAdjustmentDialogState
     final desiredBalance = double.tryParse(amountText);
     if (desiredBalance == null) return;
 
+    setState(() => _isSaving = true);
+
     final result = await ref.read(createBalanceAdjustmentProvider)(
       desiredBalance: desiredBalance,
       date: _selectedDate,
@@ -131,6 +133,7 @@ class _BalanceAdjustmentDialogState
     );
 
     if (mounted) {
+      setState(() => _isSaving = false);
       final navigator = Navigator.of(context);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       switch (result) {

@@ -6,10 +6,12 @@ import 'package:money_control/core/router/app_router.dart';
 import 'package:money_control/core/services/notification_permission_service.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 import 'package:money_control/features/transactions/presentation/providers/dashboard_provider.dart';
+import 'package:money_control/features/transactions/presentation/providers/selected_month_provider.dart';
 import 'package:money_control/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:money_control/features/transactions/presentation/widgets/balance_adjustment_dialog.dart';
 import 'package:money_control/features/transactions/presentation/widgets/charts/category_pie_chart.dart';
 import 'package:money_control/features/transactions/presentation/widgets/charts/monthly_bar_chart.dart';
+import 'package:money_control/features/transactions/presentation/widgets/month_year_picker_dialog.dart';
 import 'package:money_control/features/transactions/presentation/widgets/summary_card.dart';
 import 'package:money_control/features/transactions/presentation/widgets/transaction_list_tile.dart';
 
@@ -46,11 +48,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider);
     final dashboardAsync = ref.watch(dashboardProvider);
+    final selectedMonth = ref.watch(selectedMonthProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Money Control'),
+        title: TextButton.icon(
+          onPressed: _pickMonth,
+          icon: const Icon(Icons.calendar_today, size: 18),
+          label: Text(
+            DateFormat('MMMM yyyy', 'es_CO').format(selectedMonth),
+            style: Theme.of(context).appBarTheme.titleTextStyle ??
+                Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
         actions: [
+          _buildMonthMenu(context, selectedMonth),
           IconButton(
             icon: const Icon(Icons.list),
             onPressed: () => context.push(AppRouter.transactions),
@@ -81,10 +93,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             // Accesos rápidos a funciones de configuración y ajustes.
             _buildQuickActions(context),
             const SizedBox(height: 24),
-            // Fecha: 2026-06-26
-            // Gráficas compactas en el dashboard.
+            // Fecha: 2026-06-28
+            // Gráficas compactas filtradas por el mes seleccionado.
             transactionsAsync.when(
-              data: (transactions) => _buildCharts(transactions),
+              data: (transactions) => _buildCharts(transactions, selectedMonth),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Error: $error'),
             ),
@@ -93,7 +105,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Últimos movimientos',
+                  'Movimientos del mes',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 TextButton(
@@ -104,7 +116,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             transactionsAsync.when(
-              data: (transactions) => _buildRecentTransactions(transactions),
+              data: (transactions) => _buildRecentTransactions(
+                transactions,
+                selectedMonth,
+              ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Error: $error'),
             ),
@@ -112,6 +127,81 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  // Fecha: 2026-06-28
+  // Abre el selector de mes y año.
+  Future<void> _pickMonth() async {
+    final selected = await showDialog<DateTime>(
+      context: context,
+      builder: (_) => MonthYearPickerDialog(
+        initialDate: ref.read(selectedMonthProvider),
+      ),
+    );
+    if (selected != null) {
+      ref.read(selectedMonthProvider.notifier).state = selected;
+    }
+  }
+
+  // Fecha: 2026-06-28
+  // Menú con acciones del mes seleccionado.
+  Widget _buildMonthMenu(BuildContext context, DateTime selectedMonth) {
+    return PopupMenuButton<String>(
+      onSelected: (value) async {
+        if (value == 'clear') {
+          await _confirmClearMonth(context, selectedMonth);
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'clear',
+          child: Row(
+            children: [
+              Icon(Icons.delete_sweep, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Limpiar mes'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Fecha: 2026-06-28
+  // Confirma y ejecuta la eliminación de movimientos del mes.
+  Future<void> _confirmClearMonth(
+    BuildContext context,
+    DateTime selectedMonth,
+  ) async {
+    final monthLabel = DateFormat('MMMM yyyy', 'es_CO').format(selectedMonth);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Limpiar mes'),
+        content: Text(
+          '¿Eliminar todos los movimientos de $monthLabel? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final count = await ref.read(transactionsProvider.notifier).deleteByMonth();
+      if (mounted && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Se eliminaron $count movimientos')),
+        );
+      }
+    }
   }
 
   Widget _buildPermissionBanner() {
@@ -226,27 +316,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildCharts(List<Transaction> transactions) {
+  Widget _buildCharts(List<Transaction> transactions, DateTime month) {
     return Column(
       children: [
-        CategoryPieChart(transactions: transactions),
+        CategoryPieChart(transactions: transactions, month: month),
         const SizedBox(height: 16),
-        MonthlyBarChart(transactions: transactions),
+        MonthlyBarChart(transactions: transactions, month: month),
       ],
     );
   }
 
-  Widget _buildRecentTransactions(List<Transaction> transactions) {
-    if (transactions.isEmpty) {
+  Widget _buildRecentTransactions(
+    List<Transaction> transactions,
+    DateTime month,
+  ) {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
+    final monthTransactions = transactions.where((t) {
+      return !t.transactionDate.isBefore(start) && t.transactionDate.isBefore(end);
+    }).toList();
+
+    if (monthTransactions.isEmpty) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Center(child: Text('Aún no hay movimientos registrados')),
+          child: Center(child: Text('Aún no hay movimientos este mes')),
         ),
       );
     }
 
-    final recent = transactions.take(5).toList();
+    final recent = monthTransactions.take(5).toList();
     return Column(
       children: recent
           .map((t) => TransactionListTile(
