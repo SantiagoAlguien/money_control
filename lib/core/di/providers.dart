@@ -4,8 +4,10 @@ import 'package:money_control/features/transactions/data/repositories/transactio
 import 'package:money_control/features/transactions/domain/repositories/transaction_repository.dart';
 import 'package:money_control/features/transactions/domain/usecases/clean_expired_pending_notifications.dart';
 import 'package:money_control/features/transactions/domain/usecases/create_balance_adjustment.dart';
+import 'package:money_control/features/transactions/domain/usecases/delete_parser_rule.dart';
 import 'package:money_control/features/transactions/domain/usecases/delete_transaction.dart';
 import 'package:money_control/features/transactions/domain/usecases/delete_transactions_by_month.dart';
+import 'package:money_control/features/transactions/domain/usecases/suggest_keywords.dart';
 import 'package:money_control/features/transactions/domain/usecases/get_all_transactions.dart';
 import 'package:money_control/features/transactions/domain/usecases/get_app_configs.dart';
 import 'package:money_control/features/transactions/domain/usecases/get_monthly_summary.dart';
@@ -76,6 +78,14 @@ final getParserRulesProvider = Provider<GetParserRules>(
 
 final saveParserRuleProvider = Provider<SaveParserRule>(
   (ref) => SaveParserRule(ref.watch(transactionRepositoryProvider)),
+);
+
+final deleteParserRuleProvider = Provider<DeleteParserRule>(
+  (ref) => DeleteParserRule(ref.watch(transactionRepositoryProvider)),
+);
+
+final suggestKeywordsProvider = Provider<SuggestKeywords>(
+  (ref) => const SuggestKeywords(),
 );
 
 // Fecha: 2026-06-26

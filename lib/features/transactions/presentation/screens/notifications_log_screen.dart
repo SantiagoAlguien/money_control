@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:money_control/core/di/providers.dart';
+import 'package:money_control/core/utils/result.dart';
 import 'package:money_control/features/transactions/domain/entities/category.dart';
 import 'package:money_control/features/transactions/domain/entities/movement_type.dart';
+import 'package:money_control/features/transactions/domain/entities/parser_rule.dart';
 import 'package:money_control/features/transactions/domain/entities/pending_notification.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 import 'package:money_control/features/transactions/presentation/providers/pending_notifications_provider.dart';
 import 'package:money_control/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:money_control/features/transactions/presentation/widgets/approve_pending_dialog.dart';
+import 'package:money_control/features/transactions/presentation/widgets/quick_rule_dialog.dart';
 
 // Fecha: 2026-06-26
 // Pantalla de notificaciones capturadas pendientes de aprobación manual.
@@ -137,6 +141,7 @@ class NotificationsLogScreen extends ConsumerWidget {
 
   // Fecha: 2026-06-28
   // Procesa una notificación pendiente como transacción del tipo indicado.
+  // Si la app no tiene reglas para este texto, abre un asistente para crear una.
   // Si no logra detectar el monto, abre un diálogo para que el usuario lo complete.
   Future<void> _process(
     BuildContext context,
@@ -144,15 +149,38 @@ class NotificationsLogScreen extends ConsumerWidget {
     PendingNotification notification,
     MovementType type,
   ) async {
+    final navigator = Navigator.of(context);
     final amount = _extractAmount(notification.text);
+
+    final hasMatchingRule = await _hasMatchingRule(ref, notification);
+    ParserRule? newRule;
+    if (!hasMatchingRule && context.mounted) {
+      newRule = await showDialog<ParserRule?>(
+        context: context,
+        builder: (_) => QuickRuleDialog(
+          appPackageName: notification.packageName,
+          appName: notification.packageName,
+          notificationText: notification.text,
+          initialType: type,
+        ),
+      );
+      if (newRule == null && amount != null) {
+        // El usuario canceló o eligió "Solo esta vez" y hay monto detectado.
+        // Continuamos sin crear regla.
+      } else if (newRule == null && amount == null) {
+        // No hay monto y no quiere crear regla: no se puede guardar transacción.
+        return;
+      }
+    }
 
     final Transaction transaction;
     if (amount == null) {
+      if (!context.mounted) return;
       final approved = await showDialog<Transaction>(
         context: context,
         builder: (_) => ApprovePendingDialog(
           originalText: notification.text,
-          type: type,
+          type: newRule?.type ?? type,
         ),
       );
       if (approved == null) return;
@@ -166,8 +194,8 @@ class NotificationsLogScreen extends ConsumerWidget {
       transaction = Transaction(
         bank: notification.packageName,
         amount: amount,
-        type: type,
-        category: Category.otro,
+        type: newRule?.type ?? type,
+        category: newRule?.category ?? Category.otro,
         transactionDate: notification.timestamp,
         originalText: notification.text,
         source: notification.packageName,
@@ -175,11 +203,30 @@ class NotificationsLogScreen extends ConsumerWidget {
       );
     }
 
+    if (newRule != null) {
+      await ref.read(saveParserRuleProvider)(newRule);
+    }
+
     await ref.read(transactionsProvider.notifier).saveTransaction(transaction);
     await ref.read(pendingNotificationsProvider.notifier).process(
           notification.id!,
           approved: true,
         );
+
+    // ignore: use_build_context_synchronously
+    if (context.mounted) navigator.pop();
+  }
+
+  // Fecha: 2026-06-28
+  // Indica si la app de la notificación ya tiene una regla que coincida con el texto.
+  Future<bool> _hasMatchingRule(WidgetRef ref, PendingNotification notification) async {
+    final result = await ref.read(getParserRulesProvider)(notification.packageName);
+    final rules = switch (result) {
+      Success<List<ParserRule>>(value: final r) => r,
+      Failure() => <ParserRule>[],
+    };
+    final normalized = notification.text.toUpperCase();
+    return rules.any((rule) => normalized.contains(rule.keyword.toUpperCase()));
   }
 
   // Fecha: 2026-06-26

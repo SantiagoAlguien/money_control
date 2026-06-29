@@ -130,6 +130,16 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<Result<void>> deleteParserRule(String id) async {
+    try {
+      await _datasource.deleteParserRule(id);
+      return const Success(null);
+    } catch (e) {
+      return Failure(e);
+    }
+  }
+
+  @override
   Future<Result<void>> savePendingNotification(
     PendingNotification notification,
   ) async {

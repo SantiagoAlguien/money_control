@@ -27,6 +27,7 @@ abstract class TransactionLocalDatasource {
   // Reglas de parser
   Future<List<ParserRuleModel>> getParserRules(String packageName);
   Future<void> saveParserRule(ParserRuleModel rule);
+  Future<void> deleteParserRule(String id);
 
   // Notificaciones pendientes
   Future<void> savePendingNotification(PendingNotificationModel notification);
@@ -386,6 +387,18 @@ class TransactionLocalDatasourceImpl implements TransactionLocalDatasource {
   Future<void> saveParserRule(ParserRuleModel rule) async {
     final db = await _db;
     await db.insert('parser_rules', rule.toMap()..remove('id'));
+  }
+
+  // Fecha: 2026-06-28
+  // Elimina una regla de parser por su id.
+  @override
+  Future<void> deleteParserRule(String id) async {
+    final db = await _db;
+    await db.delete(
+      'parser_rules',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Fecha: 2026-06-26

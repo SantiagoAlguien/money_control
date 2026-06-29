@@ -4,11 +4,12 @@ import 'package:installed_apps/app_info.dart';
 import 'package:money_control/core/di/providers.dart';
 import 'package:money_control/core/utils/result.dart';
 import 'package:money_control/features/transactions/domain/entities/app_config.dart';
-import 'package:money_control/features/transactions/domain/entities/category.dart';
-import 'package:money_control/features/transactions/domain/entities/movement_type.dart';
 import 'package:money_control/features/transactions/domain/entities/parser_rule.dart';
 import 'package:money_control/features/transactions/presentation/providers/app_configs_provider.dart';
+import 'package:money_control/features/transactions/presentation/providers/parser_rules_provider.dart';
 import 'package:money_control/features/transactions/presentation/widgets/installed_apps_picker.dart';
+import 'package:money_control/features/transactions/presentation/widgets/rule_editor_dialog.dart';
+import 'package:money_control/features/transactions/presentation/widgets/rule_preview_dialog.dart';
 
 // Fecha: 2026-06-26
 // Pantalla para configurar qué apps pueden enviar notificaciones y cómo procesarlas.
@@ -195,32 +196,59 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
     );
   }
 
-  // Fecha: 2026-06-26
-  // Muestra las reglas de parser de una app y permite agregar nuevas.
+  // Fecha: 2026-06-28
+  // Muestra las reglas de parser de una app con opciones de editar, eliminar y probar.
   Future<void> _showRulesDialog(AppConfig config) async {
-    final result = await ref.read(getParserRulesProvider)(config.packageName);
-    final List<ParserRule> rules;
-    switch (result) {
-      case Success<List<ParserRule>>(value: final r):
-        rules = r;
-      case Failure():
-        return;
-    }
-
-    if (!mounted) return;
-
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Reglas: ${config.appName}'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  shrinkWrap: true,
+      builder: (context) => _RulesDialog(config: config),
+    );
+  }
+}
+
+// Fecha: 2026-06-28
+// Diálogo interno que gestiona las reglas de una app de forma reactiva.
+class _RulesDialog extends ConsumerStatefulWidget {
+  final AppConfig config;
+
+  const _RulesDialog({required this.config});
+
+  @override
+  ConsumerState<_RulesDialog> createState() => _RulesDialogState();
+}
+
+class _RulesDialogState extends ConsumerState<_RulesDialog> {
+  @override
+  Widget build(BuildContext context) {
+    final rulesAsync = ref.watch(parserRulesProvider(widget.config.packageName));
+
+    return AlertDialog(
+      title: Text('Reglas: ${widget.config.appName}'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: rulesAsync.when(
+          data: (rules) => _buildContent(rules),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('Error: $error')),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(List<ParserRule> rules) {
+    return Column(
+      children: [
+        Expanded(
+          child: rules.isEmpty
+              ? const Center(child: Text('No hay reglas configuradas'))
+              : ListView.builder(
                   itemCount: rules.length,
                   itemBuilder: (context, index) {
                     final rule = rules[index];
@@ -229,103 +257,107 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
                       subtitle: Text(
                         '${rule.category.displayName} · ${rule.type.value}',
                       ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 20),
+                            onPressed: () => _editRule(rule),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                            onPressed: () => _deleteRule(rule),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddRuleDialog(config),
-                icon: const Icon(Icons.add),
-                label: const Text('Agregar regla'),
-              ),
-            ],
-          ),
         ),
+        const Divider(),
+        Wrap(
+          spacing: 8,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _addRule,
+              icon: const Icon(Icons.add),
+              label: const Text('Agregar'),
+            ),
+            ElevatedButton.icon(
+              onPressed: _previewRule,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Probar'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addRule() async {
+    final rule = await showDialog<ParserRule>(
+      context: context,
+      builder: (_) => RuleEditorDialog(appPackageName: widget.config.packageName),
+    );
+    if (rule != null) {
+      await ref.read(saveParserRuleProvider)(rule);
+      if (mounted) {
+        ref.invalidate(parserRulesProvider(widget.config.packageName));
+      }
+    }
+  }
+
+  Future<void> _editRule(ParserRule rule) async {
+    final updated = await showDialog<ParserRule>(
+      context: context,
+      builder: (_) => RuleEditorDialog(
+        appPackageName: widget.config.packageName,
+        rule: rule,
+      ),
+    );
+    if (updated != null) {
+      await ref.read(saveParserRuleProvider)(updated);
+      if (mounted) {
+        ref.invalidate(parserRulesProvider(widget.config.packageName));
+      }
+    }
+  }
+
+  Future<void> _deleteRule(ParserRule rule) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar regla'),
+        content: Text('¿Eliminar la regla "${rule.keyword}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+
+    if (confirmed == true && rule.id != null) {
+      await ref.read(deleteParserRuleProvider)(rule.id!);
+      if (mounted) {
+        ref.invalidate(parserRulesProvider(widget.config.packageName));
+      }
+    }
   }
 
-  // Fecha: 2026-06-26
-  // Muestra diálogo para agregar una regla de parser.
-  void _showAddRuleDialog(AppConfig config) {
-    final keywordController = TextEditingController();
-    Category selectedCategory = Category.transferencia;
-    MovementType selectedType = MovementType.expense;
-
-    showDialog(
+  Future<void> _previewRule() async {
+    await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Nueva regla'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: keywordController,
-                decoration: const InputDecoration(labelText: 'Palabra clave'),
-              ),
-              DropdownButtonFormField<Category>(
-                key: ValueKey(selectedCategory),
-                initialValue: selectedCategory,
-                decoration: const InputDecoration(labelText: 'Categoría'),
-                items: Category.values.map((c) {
-                  return DropdownMenuItem(
-                    value: c,
-                    child: Text(c.displayName),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedCategory = value);
-                  }
-                },
-              ),
-              DropdownButtonFormField<MovementType>(
-                key: ValueKey(selectedType),
-                initialValue: selectedType,
-                decoration: const InputDecoration(labelText: 'Tipo'),
-                items: MovementType.values.map((t) {
-                  return DropdownMenuItem(
-                    value: t,
-                    child: Text(t.value.toUpperCase()),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedType = value);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () async {
-                final navigator = Navigator.of(context);
-                final rule = ParserRule(
-                  appPackageName: config.packageName,
-                  keyword: keywordController.text.trim(),
-                  category: selectedCategory,
-                  type: selectedType,
-                );
-                await ref.read(saveParserRuleProvider)(rule);
-                if (mounted) navigator.pop();
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
+      builder: (_) => RulePreviewDialog(
+        packageName: widget.config.packageName,
+        appName: widget.config.appName,
       ),
     );
   }
+
 }

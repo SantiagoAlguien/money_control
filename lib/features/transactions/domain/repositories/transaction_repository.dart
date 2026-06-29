@@ -23,6 +23,7 @@ abstract class TransactionRepository {
   // Reglas de parser
   Future<Result<List<ParserRule>>> getParserRules(String packageName);
   Future<Result<void>> saveParserRule(ParserRule rule);
+  Future<Result<void>> deleteParserRule(String id);
 
   // Notificaciones pendientes
   Future<Result<void>> savePendingNotification(PendingNotification notification);
