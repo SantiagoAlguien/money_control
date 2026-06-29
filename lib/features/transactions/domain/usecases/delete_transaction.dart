@@ -8,7 +8,7 @@ class DeleteTransaction {
 
   const DeleteTransaction(this._repository);
 
-  Future<Result<void>> call(String id) {
+  Future<Result<void>> call(int id) {
     return _repository.deleteTransaction(id);
   }
 }

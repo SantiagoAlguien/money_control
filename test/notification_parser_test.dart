@@ -92,5 +92,18 @@ void main() {
       expect(transaction.category, Category.withdrawal);
       expect(transaction.transactionDate, DateTime(2026, 6, 1));
     });
+
+    test('caso 7: nequi recibiste plata por Bre-B', () {
+      const text =
+          'Te enviaron plata por Bre-B. Te enviaron \$11. Entra a tu app y revisa tu saldo.';
+
+      final transaction = parser(text, source: 'com.nequi.MobileApp');
+
+      expect(transaction, isNotNull);
+      expect(transaction!.bank, 'Desconocido');
+      expect(transaction.amount, 11.0);
+      expect(transaction.type, MovementType.income);
+      expect(transaction.category, Category.transfer);
+    });
   });
 }

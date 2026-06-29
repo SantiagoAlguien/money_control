@@ -5,7 +5,7 @@ import 'package:money_control/features/transactions/domain/entities/movement_typ
 // Entidad de dominio que representa una transacción financiera.
 // Guarda toda la información relevante de un movimiento bancario o manual.
 class Transaction {
-  final String? id;
+  final int? id;
   final String bank;
   final double amount;
   final MovementType type;
@@ -32,7 +32,7 @@ class Transaction {
   // Fecha: 2026-06-26
   // Crea una copia de la transacción con los campos que se deseen actualizar.
   Transaction copyWith({
-    String? id,
+    int? id,
     String? bank,
     double? amount,
     MovementType? type,

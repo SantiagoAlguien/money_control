@@ -7,14 +7,14 @@ import 'package:money_control/core/services/notification_permission_service.dart
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 import 'package:money_control/features/transactions/presentation/providers/dashboard_provider.dart';
 import 'package:money_control/features/transactions/presentation/providers/transactions_provider.dart';
-import 'package:money_control/features/transactions/presentation/widgets/charts/balance_line_chart.dart';
+import 'package:money_control/features/transactions/presentation/widgets/balance_adjustment_dialog.dart';
 import 'package:money_control/features/transactions/presentation/widgets/charts/category_pie_chart.dart';
 import 'package:money_control/features/transactions/presentation/widgets/charts/monthly_bar_chart.dart';
 import 'package:money_control/features/transactions/presentation/widgets/summary_card.dart';
 import 'package:money_control/features/transactions/presentation/widgets/transaction_list_tile.dart';
 
 // Fecha: 2026-06-26
-// Pantalla principal de la app. Muestra resumen, gráficas y últimos movimientos.
+// Pantalla principal con resumen, gráficas y accesos a configuración.
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -31,8 +31,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _checkPermission();
   }
 
-  // Fecha: 2026-06-26
-  // Verifica si la app tiene permiso para leer notificaciones del sistema.
   Future<void> _checkPermission() async {
     final granted = await NotificationPermissionService.isGranted();
     if (mounted) {
@@ -40,8 +38,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  // Fecha: 2026-06-26
-  // Abre la configuración de Android para activar acceso a notificaciones.
   Future<void> _openSettings() async {
     await NotificationPermissionService.openSettings();
   }
@@ -80,6 +76,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Error: $error'),
             ),
+            const SizedBox(height: 16),
+            // Fecha: 2026-06-26
+            // Accesos rápidos a funciones de configuración y ajustes.
+            _buildQuickActions(context),
             const SizedBox(height: 24),
             // Fecha: 2026-06-26
             // Gráficas compactas en el dashboard.
@@ -114,8 +114,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // Fecha: 2026-06-26
-  // Muestra un banner según el estado del permiso de notificaciones.
   Widget _buildPermissionBanner() {
     if (_permissionGranted == null) return const SizedBox.shrink();
     if (_permissionGranted == true) {
@@ -156,8 +154,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // Fecha: 2026-06-26
-  // Construye las tarjetas de resumen: saldo, ingresos y gastos del mes.
   Widget _buildSummary(BuildContext context, Map<String, double> summary) {
     final currencyFormat = NumberFormat.currency(
       locale: 'es_CO',
@@ -202,21 +198,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   // Fecha: 2026-06-26
-  // Renderiza las gráficas usando la lista de transacciones.
+  // Botones rápidos para notificaciones pendientes, configuración y ajuste de saldo.
+  Widget _buildQuickActions(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ActionChip(
+          avatar: const Icon(Icons.notifications),
+          label: const Text('Pendientes'),
+          onPressed: () => context.push(AppRouter.notificationsLog),
+        ),
+        ActionChip(
+          avatar: const Icon(Icons.settings),
+          label: const Text('Apps'),
+          onPressed: () => context.push(AppRouter.appSettings),
+        ),
+        ActionChip(
+          avatar: const Icon(Icons.tune),
+          label: const Text('Ajustar saldo'),
+          onPressed: () => showDialog(
+            context: context,
+            builder: (_) => const BalanceAdjustmentDialog(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCharts(List<Transaction> transactions) {
     return Column(
       children: [
         CategoryPieChart(transactions: transactions),
         const SizedBox(height: 16),
         MonthlyBarChart(transactions: transactions),
-        const SizedBox(height: 16),
-        BalanceLineChart(transactions: transactions),
       ],
     );
   }
 
-  // Fecha: 2026-06-26
-  // Muestra los últimos 5 movimientos recientes.
   Widget _buildRecentTransactions(List<Transaction> transactions) {
     if (transactions.isEmpty) {
       return const Card(
@@ -229,13 +248,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final recent = transactions.take(5).toList();
     return Column(
-      children: recent.map((t) => TransactionListTile(
-        transaction: t,
-        onTap: () => context.push(
-          AppRouter.addEditTransaction,
-          extra: t,
-        ),
-      )).toList(),
+      children: recent
+          .map((t) => TransactionListTile(
+                transaction: t,
+                onTap: () => context.push(
+                  AppRouter.addEditTransaction,
+                  extra: t,
+                ),
+              ))
+          .toList(),
     );
   }
 }

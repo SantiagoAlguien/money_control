@@ -7,7 +7,7 @@ import 'package:money_control/features/transactions/domain/entities/transaction.
 // Modelo de datos que representa una transacción en la capa de datos.
 // Se encarga de convertir entre la entidad de dominio y el mapa de SQLite.
 class TransactionModel {
-  final String? id;
+  final int? id;
   final String bank;
   final double amount;
   final String type;
@@ -87,7 +87,7 @@ class TransactionModel {
   // El id es INTEGER en la base de datos, por eso se convierte con toString().
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
-      id: map['id']?.toString(),
+      id: map['id'] as int?,
       bank: map['bank'] as String,
       amount: map['amount'] as double,
       type: map['type'] as String,
@@ -103,7 +103,7 @@ class TransactionModel {
   // Fecha: 2026-06-26
   // Crea una copia del modelo con los campos que se deseen actualizar.
   TransactionModel copyWith({
-    String? id,
+    int? id,
     String? bank,
     double? amount,
     String? type,

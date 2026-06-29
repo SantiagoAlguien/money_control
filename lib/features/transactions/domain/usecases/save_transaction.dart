@@ -7,7 +7,7 @@ class SaveTransaction {
 
   const SaveTransaction(this._repository);
 
-  Future<Result<void>> call(Transaction transaction) {
+  Future<Result<int>> call(Transaction transaction) {
     return _repository.saveTransaction(transaction);
   }
 }

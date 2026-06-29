@@ -1,10 +1,17 @@
+import 'package:money_control/features/transactions/domain/entities/app_config.dart';
 import 'package:money_control/features/transactions/domain/entities/category.dart';
 import 'package:money_control/features/transactions/domain/entities/movement_type.dart';
+import 'package:money_control/features/transactions/domain/entities/parser_rule.dart';
 import 'package:money_control/features/transactions/domain/entities/transaction.dart';
 
+// Fecha: 2026-06-26
+// Parser de notificaciones bancarias.
+// Soporta reglas parametrizables por app y un fallback con reglas por defecto.
 class ParseNotification {
   const ParseNotification();
 
+  // Fecha: 2026-06-26
+  // Método legacy para compatibilidad con tests y uso simple.
   Transaction? call(
     String text, {
     String source = 'notification',
@@ -20,13 +27,53 @@ class ParseNotification {
 
     final date = _extractDate(normalized, receivedAt);
     final bank = _extractBank(normalized, source);
-    final type = _detectType(category, normalized);
+    final type = _typeForCategory(category, normalized);
 
     return Transaction(
       bank: bank,
       amount: amount,
       type: type,
       category: category,
+      transactionDate: date,
+      originalText: text,
+      source: source,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  // Fecha: 2026-06-26
+  // Método parametrizable usando la configuración de app y reglas de la BD.
+  Transaction? parseWithConfig(
+    String text,
+    AppConfig appConfig,
+    List<ParserRule> rules, {
+    String source = 'notification',
+    DateTime? receivedAt,
+  }) {
+    final normalized = _normalize(text);
+
+    // Fecha: 2026-06-26
+    // Busca la primera regla cuya palabra clave esté contenida en el texto.
+    ParserRule? matchedRule;
+    for (final rule in rules) {
+      if (normalized.contains(_normalize(rule.keyword))) {
+        matchedRule = rule;
+        break;
+      }
+    }
+
+    if (matchedRule == null) return null;
+
+    final amount = _extractAmount(normalized);
+    if (amount == null) return null;
+
+    final date = _extractDate(normalized, receivedAt);
+
+    return Transaction(
+      bank: appConfig.bankName,
+      amount: amount,
+      type: matchedRule.type,
+      category: matchedRule.category,
       transactionDate: date,
       originalText: text,
       source: source,
@@ -68,12 +115,9 @@ class ParseNotification {
     return null;
   }
 
-  MovementType _detectType(Category category, String text) {
+  MovementType _typeForCategory(Category category, String text) {
     if (text.contains('TE ENVIARON')) return MovementType.income;
-    return _typeForCategory(category);
-  }
 
-  MovementType _typeForCategory(Category category) {
     switch (category) {
       case Category.payroll:
       case Category.performance:

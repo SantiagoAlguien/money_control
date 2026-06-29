@@ -46,7 +46,7 @@ class TransactionsScreen extends ConsumerWidget {
       itemBuilder: (context, index) {
         final transaction = transactions[index];
         return Dismissible(
-          key: Key(transaction.id ?? ''),
+          key: Key(transaction.id?.toString() ?? ''),
           direction: DismissDirection.endToStart,
           background: Container(
             color: Colors.red,
